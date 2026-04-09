@@ -7,7 +7,9 @@
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/nano.min.css"/>
     <style>
+    
         .active-nav { color: #1d4ed8; border-top: 3px solid #1d4ed8; }
         body { background-color: #f8fafc; font-family: sans-serif; -webkit-tap-highlight-color: transparent; }
         .hide-scroll::-webkit-scrollbar { display: none; }
@@ -107,14 +109,17 @@
                 <option value="Flakie">Flakie</option>
             </select>
             <div class="flex items-center gap-4 mb-2">
-                <input 
-  type="text" 
-  id="p-color" 
-  placeholder="#RRGGBB"
-  oninput="checkDupes(this.value)" 
-  class="w-32 h-12 rounded-lg border p-2 font-mono uppercase"
-  maxlength="7"
-/>
+                <div class="flex items-center gap-3">
+  <div id="color-picker"></div>
+
+  <input 
+    type="text" 
+    id="p-color" 
+    placeholder="#RRGGBB"
+    class="w-28 h-12 rounded-lg border p-2 font-mono uppercase"
+    maxlength="7"
+  />
+                </div>
                 <span class="text-xs text-slate-400">Pick the closest color match</span>
             </div>
             <p id="dupe-warning" class="text-[11px] text-amber-700 bg-amber-50 p-3 rounded-xl mb-4 hidden border border-amber-100 font-medium"></p>
@@ -169,6 +174,31 @@
     </div>
 
     <script>
+const pickr = Pickr.create({
+    el: '#color-picker',
+    theme: 'nano',
+
+    default: '#ffffff',
+
+    components: {
+        preview: true,
+        opacity: false,
+        hue: true,
+
+        interaction: {
+            hex: true,
+            input: true,
+            save: false
+        }
+    }
+});
+
+        pickr.on('change', (color) => {
+    const hex = color.toHEXA().toString().toUpperCase();
+    document.getElementById('p-color').value = hex;
+    checkDupes(hex);
+});
+        
         // Database Init
         const db = new Dexie("PolishMasterDB");
         db.version(2).stores({
@@ -247,23 +277,23 @@
             return Math.sqrt(Math.pow(r1-r2,2) + Math.pow(g1-g2,2) + Math.pow(b1-b2,2));
         }
 
-        async function checkDupes(val) {
-            const polishes = await db.polishes.toArray();
-            const warning = document.getElementById('dupe-warning');
-            let dupe = polishes.find(p => getColorDistance(val, p.color) < 35);
-            if(dupe) {
-                warning.innerHTML = `⚠️ <b>Possible Dupe:</b> Looks like your "${dupe.brand} - ${dupe.name}"!`;
-                warning.classList.remove('hidden');
-            } else {
-                warning.classList.add('hidden');
-            }
-        }
+        document.getElementById('p-color').addEventListener('input', (e) => {
+    let val = e.target.value.trim();
+
+    if (!val.startsWith('#')) val = '#' + val;
+
+    if (/^#([0-9A-F]{3}){1,2}$/i.test(val)) {
+        pickr.setColor(val);
+        checkDupes(val);
+    }
+});
 
         async function savePolish() {
             const brand = document.getElementById('p-brand').value;
             const name = document.getElementById('p-name').value;
             const finish = document.getElementById('p-finish').value;
-            const color = document.getElementById('p-color').value;
+            let color = document.getElementById('p-color').value.trim();
+if (!color.startsWith('#')) color = '#' + color;
             if(!brand || !name) return;
             await db.polishes.add({ brand, name, finish, color });
             toggleModal('add-polish-modal');
@@ -387,5 +417,6 @@
         showView('collection');
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js"></script>
 </body>
     </html>
