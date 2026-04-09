@@ -107,7 +107,14 @@
                 <option value="Flakie">Flakie</option>
             </select>
             <div class="flex items-center gap-4 mb-2">
-                <input type="color" id="p-color" oninput="checkDupes(this.value)" class="w-16 h-12 rounded-lg cursor-pointer border-none p-0 overflow-hidden">
+                <input 
+  type="text" 
+  id="p-color" 
+  placeholder="#RRGGBB"
+  oninput="checkDupes(this.value)" 
+  class="w-32 h-12 rounded-lg border p-2 font-mono uppercase"
+  maxlength="7"
+/>
                 <span class="text-xs text-slate-400">Pick the closest color match</span>
             </div>
             <p id="dupe-warning" class="text-[11px] text-amber-700 bg-amber-50 p-3 rounded-xl mb-4 hidden border border-amber-100 font-medium"></p>
