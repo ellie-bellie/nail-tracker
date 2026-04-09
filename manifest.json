@@ -1,10 +1,10 @@
 {
   "name": "Polish Palette",
-  "short_name": "NailTracker",
+  "short_name": "NailVault",
   "start_url": "index.html",
   "display": "standalone",
-  "background_color": "#fdf2f8",
-  "theme_color": "#db2777",
+  "background_color": "#f8fafc",
+  "theme_color": "#1d4ed8",
   "icons": [
     {
       "src": "https://cdn-icons-png.flaticon.com/512/822/822143.png",
