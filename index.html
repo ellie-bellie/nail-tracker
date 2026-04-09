@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polish Palette</title>
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    <style>
+        .active-tab { border-bottom: 3px solid #db2777; color: #db2777; }
+        body { background-color: #fdf2f8; -webkit-tap-highlight-color: transparent; }
+    </style>
+</head>
+<body class="pb-24">
+
+    <header class="bg-white p-4 shadow-sm sticky top-0 z-10">
+        <h1 class="text-2xl font-bold text-pink-600">Polish Palette</h1>
+    </header>
+
+    <main id="app" class="p-4 max-w-md mx-auto">
+        <section id="view-collection">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold">My Collection</h2>
+                <button onclick="toggleModal('add-polish-modal')" class="bg-pink-500 text-white px-4 py-2 rounded-full shadow-lg">+ Add</button>
+            </div>
+            
+            <input type="text" id="search" placeholder="Search brands or colors..." onkeyup="renderCollection()" class="w-full p-2 mb-4 border rounded-lg focus:outline-pink-300">
+            
+            <div id="polish-list" class="grid grid-cols-2 gap-4"></div>
+        </section>
+
+        <section id="view-planner" class="hidden">
+            <h2 class="text-xl font-semibold mb-4">Manicure Planner</h2>
+            <div class="bg-white p-6 rounded-2xl shadow-md text-center">
+                <p class="text-gray-500 mb-4">Feeling indecisive?</p>
+                <button onclick="generateMani()" class="bg-purple-500 text-white px-6 py-3 rounded-xl font-bold w-full mb-4">Generate Random Mani</button>
+                <div id="generated-result" class="mt-4 p-4 rounded-lg bg-pink-50 hidden border-2 border-dashed border-pink-200"></div>
+            </div>
+        </section>
+
+        <section id="view-history" class="hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold">Mani History</h2>
+                <button onclick="toggleModal('add-mani-modal')" class="bg-pink-500 text-white px-4 py-2 rounded-full shadow-lg">+ Log</button>
+            </div>
+            <div id="history-list" class="space-y-4"></div>
+        </section>
+    </main>
+
+    <nav class="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around p-3 shadow-2xl">
+        <button onclick="showView('collection')" class="flex flex-col items-center text-gray-400 nav-btn" id="nav-collection">
+            <span class="text-xs font-bold uppercase">Inventory</span>
+        </button>
+        <button onclick="showView('planner')" class="flex flex-col items-center text-gray-400 nav-btn" id="nav-planner">
+            <span class="text-xs font-bold uppercase">Planner</span>
+        </button>
+        <button onclick="showView('history')" class="flex flex-col items-center text-gray-400 nav-btn" id="nav-history">
+            <span class="text-xs font-bold uppercase">History</span>
+        </button>
+    </nav>
+
+    <div id="add-polish-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-20">
+        <div class="bg-white w-full max-w-sm p-6 rounded-2xl">
+            <h3 class="text-lg font-bold mb-4">Add New Polish</h3>
+            <input type="text" id="p-brand" placeholder="Brand" class="w-full p-2 mb-2 border rounded">
+            <input type="text" id="p-name" placeholder="Color Name" class="w-full p-2 mb-2 border rounded">
+            <select id="p-finish" class="w-full p-2 mb-2 border rounded">
+                <option value="Cream">Cream</option>
+                <option value="Holo">Holo</option>
+                <option value="Shimmer">Shimmer</option>
+                <option value="Glitter">Glitter</option>
+                <option value="Matte">Matte</option>
+            </select>
+            <input type="color" id="p-color" class="w-full h-10 mb-4 rounded cursor-pointer">
+            <div class="flex gap-2">
+                <button onclick="savePolish()" class="bg-pink-500 text-white flex-1 py-2 rounded font-bold">Save</button>
+                <button onclick="toggleModal('add-polish-modal')" class="bg-gray-200 text-gray-700 flex-1 py-2 rounded">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="add-mani-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-20">
+        <div class="bg-white w-full max-w-sm p-6 rounded-2xl">
+            <h3 class="text-lg font-bold mb-4">Log Manicure</h3>
+            <input type="file" id="m-photo" accept="image/*" class="w-full mb-4">
+            <textarea id="m-note" placeholder="What did you use?" class="w-full p-2 mb-4 border rounded"></textarea>
+            <div class="flex gap-2">
+                <button onclick="saveMani()" class="bg-pink-500 text-white flex-1 py-2 rounded font-bold">Save Mani</button>
+                <button onclick="toggleModal('add-mani-modal')" class="bg-gray-200 text-gray-700 flex-1 py-2 rounded">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Database Setup
+        const db = new Dexie("PolishDB");
+        db.version(1).stores({
+            polishes: '++id, brand, name, finish, color',
+            history: '++id, date, photo, note'
+        });
+
+        // Navigation
+        function showView(view) {
+            document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+            document.getElementById(`view-${view}`).classList.remove('hidden');
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('text-pink-600'));
+            document.getElementById(`nav-${view}`).classList.add('text-pink-600');
+            if(view === 'collection') renderCollection();
+            if(view === 'history') renderHistory();
+        }
+
+        function toggleModal(id) {
+            const m = document.getElementById(id);
+            m.classList.toggle('hidden');
+        }
+
+        // Logic: Collection
+        async function savePolish() {
+            const brand = document.getElementById('p-brand').value;
+            const name = document.getElementById('p-name').value;
+            const finish = document.getElementById('p-finish').value;
+            const color = document.getElementById('p-color').value;
+
+            if(!brand || !name) return alert("Please fill in Brand and Name");
+
+            await db.polishes.add({ brand, name, finish, color });
+            toggleModal('add-polish-modal');
+            renderCollection();
+            // Clear inputs
+            document.getElementById('p-brand').value = '';
+            document.getElementById('p-name').value = '';
+        }
+
+        async function renderCollection() {
+            const query = document.getElementById('search').value.toLowerCase();
+            const polishes = await db.polishes.toArray();
+            const list = document.getElementById('polish-list');
+            list.innerHTML = '';
+
+            const filtered = polishes.filter(p => 
+                p.brand.toLowerCase().includes(query) || 
+                p.name.toLowerCase().includes(query) || 
+                p.finish.toLowerCase().includes(query)
+            );
+
+            filtered.forEach(p => {
+                const card = document.createElement('div');
+                card.className = "bg-white p-3 rounded-xl shadow-sm border-t-4";
+                card.style.borderTopColor = p.color;
+                card.innerHTML = `
+                    <p class="font-bold text-sm truncate">${p.brand}</p>
+                    <p class="text-xs text-gray-500 truncate">${p.name}</p>
+                    <p class="text-[10px] mt-1 uppercase font-bold text-gray-400">${p.finish}</p>
+                    <button onclick="deletePolish(${p.id})" class="text-[10px] text-red-300 mt-2">Remove</button>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        async function deletePolish(id) {
+            if(confirm("Remove from collection?")) {
+                await db.polishes.delete(id);
+                renderCollection();
+            }
+        }
+
+        // Logic: Planner
+        async function generateMani() {
+            const polishes = await db.polishes.toArray();
+            if(polishes.length < 1) return alert("Add some polishes first!");
+            
+            const random = polishes[Math.floor(Math.random() * polishes.length)];
+            const res = document.getElementById('generated-result');
+            res.classList.remove('hidden');
+            res.innerHTML = `
+                <p class="text-sm text-gray-600">The Universe suggests:</p>
+                <div class="my-2 h-8 w-8 rounded-full mx-auto" style="background:${random.color}"></div>
+                <h4 class="font-bold">${random.brand}</h4>
+                <p>${random.name} (${random.finish})</p>
+            `;
+        }
+
+        // Logic: History & Photos
+        async function saveMani() {
+            const photoFile = document.getElementById('m-photo').files[0];
+            const note = document.getElementById('m-note').value;
+            
+            let photoBase64 = '';
+            if(photoFile) {
+                // Compression logic to keep it local but small
+                photoBase64 = await toBase64(photoFile);
+            }
+
+            await db.history.add({ 
+                date: new Date().toLocaleDateString(), 
+                photo: photoBase64, 
+                note 
+            });
+            toggleModal('add-mani-modal');
+            renderHistory();
+        }
+
+        const toBase64 = file => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+
+        async function renderHistory() {
+            const history = await db.history.reverse().toArray();
+            const list = document.getElementById('history-list');
+            list.innerHTML = '';
+
+            history.forEach(h => {
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-2xl overflow-hidden shadow-sm";
+                card.innerHTML = `
+                    ${h.photo ? `<img src="${h.photo}" class="w-full h-48 object-cover">` : ''}
+                    <div class="p-4">
+                        <p class="text-xs text-gray-400 font-bold mb-1">${h.date}</p>
+                        <p class="text-gray-700">${h.note}</p>
+                        <button onclick="deleteHistory(${h.id})" class="text-[10px] text-red-300 mt-2">Delete Log</button>
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        async function deleteHistory(id) {
+            if(confirm("Delete this memory?")) {
+                await db.history.delete(id);
+                renderHistory();
+            }
+        }
+
+        // Init
+        showView('collection');
+
+        // Service Worker Register
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+    </script>
+</body>
+</html>
