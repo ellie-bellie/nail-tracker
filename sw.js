@@ -1,4 +1,4 @@
-const CACHE_NAME = 'polish-palette-v2';
+const CACHE_NAME = 'polish-palette-v3';
 const urlsToCache = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', event => {
